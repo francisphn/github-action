@@ -11,16 +11,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Install Twingate
-      shell: bash
-      run: |
-        echo "deb [trusted=yes] https://packages.twingate.com/apt/ /" | sudo tee /etc/apt/sources.list.d/twingate.list
-        sudo apt-get update -o Dir::Etc::sourcelist="sources.list.d/twingate.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
-        sudo apt install -yq twingate
-
     - name: Setup and start Twingate
       shell: bash
       run: |
+        curl https://binaries.twingate.com/client/linux/install.sh | sudo bash
         echo '${{ inputs.service-key }}' | sudo twingate setup --headless=-
         MAX_WAIT_CYCLE=5
         WAIT_TIME=5
@@ -51,5 +45,6 @@ runs:
         if [ $n -eq $MAX_WAIT_CYCLE ]; then
           sudo twingate stop
           echo "Twingate service failed to connect."
+          sudo journalctl -u twingate --since "1 hour ago"
           exit 1
         fi
