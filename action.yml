@@ -1,4 +1,4 @@
-name: 'Connect to Twingate'
+name: 'Connect to Twingate (beta)'
 description: 'Connects to Twingate protected resources from your Github Action workflow'
 branding:
   icon: 'arrow-right-circle'
@@ -7,6 +7,7 @@ inputs:
   service-key:
     description: 'Twingate Service Key'
     required: true
+
 runs:
   using: "composite"
   steps:
@@ -16,18 +17,20 @@ runs:
         echo "deb [trusted=yes] https://packages.twingate.com/apt/ /" | sudo tee /etc/apt/sources.list.d/twingate.list
         sudo apt-get update -o Dir::Etc::sourcelist="sources.list.d/twingate.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
         sudo apt install -yq twingate
+
     - name: Setup and start Twingate
       shell: bash
       run: |
         echo '${{ inputs.service-key }}' | sudo twingate setup --headless=-
-        MAX_RETRIES=5
+        MAX_WAIT_CYCLE=5
         WAIT_TIME=5
         n=0
 
-        while [ $n -lt $MAX_RETRIES ]; do
-          echo "Starting Twingate service..."
-          sudo twingate start
+        echo "Starting Twingate service..."
+        sudo twingate start
 
+        while [ $n -lt $MAX_WAIT_CYCLE ]; do
+        
           echo "Waiting $WAIT_TIME seconds for Twingate service to start..."
           sleep $WAIT_TIME
 
@@ -36,18 +39,17 @@ runs:
           if [ "$status" = "online" ]; then
             echo "Twingate service is connected."
             break
-          else
-            sudo twingate stop
           fi
 
           # Increment the retry counter and wait time
           n=$((n+1))
           WAIT_TIME=$((WAIT_TIME+5))
 
-          echo "Twingate service is not connected. Retrying ..."
+          echo "Twingate service is not connected. Continuing to wait..."
         done
 
-        if [ $n -eq $MAX_RETRIES ]; then
+        if [ $n -eq $MAX_WAIT_CYCLE ]; then
+          sudo twingate stop
           echo "Twingate service failed to connect."
           exit 1
         fi
